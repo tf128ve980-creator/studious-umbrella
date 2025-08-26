@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>インターネット料金比較シミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+        }
+        .fade-in {
+            animation: fadeIn 0.6s ease-in-out forwards;
+        }
+        .stagger-in {
+            animation: fadeIn 0.6s ease-in-out forwards;
+            opacity: 0;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .result-card {
+            transition: all 0.3s ease-in-out;
+            border-top-width: 4px;
+        }
+        .result-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+        .tab-button, .campaign-button, .payment-estimate-btn {
+            transition: all 0.2s ease;
+        }
+        .tab-button.active {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .campaign-button.active {
+            background-color: #e11d48; /* rose-600 */
+            color: white;
+        }
+        .tab-button:not(.active) {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #4b5563; /* gray-600 */
+        }
+        .campaign-button:not(.active) {
+             background-color: #3b82f6; /* blue-500 */
+             color: white;
+        }
+        .payment-estimate-btn:disabled {
+            background-color: #9ca3af; /* gray-400 */
+            cursor: not-allowed;
+        }
+        .phone-options, .campaign-details {
+            transition: all 0.3s ease-in-out;
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+        }
+        .phone-options.show, .campaign-details.show {
+            max-height: 500px; /* 十分な高さを確保 */
+            opacity: 1;
+        }
+        /* モーダル用のスタイル */
+        #payment-modal {
+            z-index: 50;
+        }
+        #modal-content-wrapper {
+            max-height: 70vh;
+            overflow: auto;
+        }
+        #payment-modal table {
+            width: 100%;
+            border-collapse: collapse;
+            white-space: nowrap;
+        }
+        #payment-modal th, #payment-modal td {
+            border: 1px solid #e5e7eb;
+            padding: 8px 12px;
+            text-align: right;
+        }
+        #payment-modal th {
+            background-color: #f9fafb;
+        }
+        #payment-modal td:first-child, #payment-modal th:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-700 pb-2">
+                インターネット料金シミュレーター
+            </h1>
+        </header>
+
+        <!-- 入力フォーム -->
+        <div id="simulator-form" class="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl space-y-6 border border-gray-200">
+            <!-- 住宅タイプ -->
+            <div>
+                <label for="housing-type" class="block text-lg font-semibold mb-2 text-gray-700">1. 住宅タイプ</label>
+                <select id="housing-type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    <option value="戸建">戸建</option>
+                    <option value="集合住宅">集合住宅</option>
+                </select>
+            </div>
+
+            <!-- ネット速度 -->
+            <div>
+                <label for="speed-plan" class="block text-lg font-semibold mb-2 text-gray-700">2. ネットの速度</label>
+                <select id="speed-plan" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    <option value="1G">1ギガプラン</option>
+                    <option value="10G">10ギガプラン</option>
+                </select>
+            </div>
+
+            <!-- オプション -->
+            <div>
+                <label class="block text-lg font-semibold mb-3 text-gray-700">3. オプション</label>
+                <div class="space-y-3">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="option-phone" value="phone" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <label for="option-phone" class="ml-3 text-base text-gray-700">光電話</label>
+                    </div>
+                    <!-- 光電話詳細オプション -->
+                    <div id="phone-type-wrapper" class="pl-8 phone-options">
+                        <div class="flex items-center mb-2">
+                            <input type="radio" id="phone-type-new" name="phone-type" value="new" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" checked>
+                            <label for="phone-type-new" class="ml-2 text-sm text-gray-600">新しく電話番号を取得</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="phone-type-port" name="phone-type" value="port" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                            <label for="phone-type-port" class="ml-2 text-sm text-gray-600">今の電話番号を引き継ぐ</label>
+                        </div>
+                    </div>
+                    <div id="tv-option-wrapper" class="flex items-center">
+                        <input type="checkbox" id="option-tv" value="tv" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <label for="option-tv" class="ml-3 text-base text-gray-700">テレビオプション</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="option-router" value="router" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <label for="option-router" class="ml-3 text-base text-gray-700">ルーターレンタル</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- シミュレーションボタン -->
+            <div class="pt-4">
+                <button id="calculate-btn" class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-4 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                    料金をシミュレーションする
+                </button>
+            </div>
+        </div>
+
+        <!-- 結果表示エリア -->
+        <div id="results-area" class="mt-12 hidden">
+            <h2 class="text-3xl sm:text-4xl font-bold text-center mb-8 text-gray-800">シミュレーション結果</h2>
+            <div id="results-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- ここに各サービスの結果が挿入されます -->
+            </div>
+            <p class="text-center text-xs text-gray-500 mt-8">
+                ※表示は月額利用料の目安です。2025/8月時点の情報で作成しています。詳細な情報は公式サイトでご確認ください。
+            </p>
+        </div>
+    </div>
+
+    <!-- 支払目安モーダル -->
+    <div id="payment-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl relative animate-in fade-in zoom-in-95">
+            <button id="modal-close-btn" class="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+            <h3 id="modal-title" class="text-xl font-bold mb-4 text-gray-900"></h3>
+            <div id="modal-content-wrapper" class="text-sm">
+                <div id="modal-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- データ定義 ---
+        const serviceData = {
+            commufa: {
+                name: "コミュファ光",
+                contract_fee: 770,
+                prices: {
+                    "エンジョイ": { "戸建": { "1G": 6050 }, "集合住宅": { "1G": 4840 } },
+                    "TNC": { "戸建": { "1G": 6303 }, "集合住宅": { "1G": 4829 } },
+                    "10G": { "戸建": 6930, "集合住宅": 6930 }
+                },
+                options: { phone: 550, tv: 506, discount: -550, gigaTripleDiscount: -286 },
+                phone_construction: { new: 3300, port: 5500 },
+                construction: { "戸建": 27500, "集合住宅": 27500 },
+                construction_tv: 20570,
+                installments: { default: 24, tv: 60 },
+                campaign: {
+                    initial_fee_free: true,
+                    construction_fee_free: true,
+                    monthly_discount: {
+                        "10G": { "戸建": -1960, "集合住宅": -1960 },
+                        "1G": { "戸建": -2190, "集合住宅": -1620 }
+                    },
+                    isp_discount: {
+                        "エンジョイ": {
+                            duration: 1,
+                            "10G": -1540,
+                            "1G": { "戸建": -1430, "集合住宅": -1320 }
+                        },
+                        "TNC": {
+                            duration: 2,
+                            "1G": { "戸建": -1683, "集合住宅": -1309 }
+                        }
+                    }
+                }
+            },
+            docomo: {
+                name: "ドコモ光",
+                contract_fee: 4950,
+                prices: {
+                    A: { "戸建": { "1G": 5720, "10G": 6930 }, "集合住宅": { "1G": 4400, "10G": 6930 } },
+                    B: { "戸建": { "1G": 5940, "10G": 7150 }, "集合住宅": { "1G": 4620, "10G": 7150 } }
+                },
+                options: { phone: 550, tv: 990, router_10g: 550, router_10g_bundle: 110 },
+                phone_construction: { new: 2750, port: 4950 },
+                construction: { "戸建": 22000, "集合住宅": 22000 },
+                construction_tv: 28380,
+                tv_service_fee: 3080,
+                installments: { default: 24 },
+                installments_detail: {
+                    net: { first: 932, regular: 916, count: 24 },
+                    phone_new: { first: 128, regular: 114, count: 24 },
+                    phone_port: { first: 212, regular: 206, count: 24 },
+                    tv: { first: 1194, regular: 1182, count: 24 }
+                },
+                campaign: {
+                    construction_fee_support: true,
+                    monthly_discount_10g_to_500: true
+                }
+            },
+            softbank: {
+                name: "SoftBank光",
+                contract_fee: 4950,
+                prices: { "戸建": { "1G": 5720, "10G": 6380 }, "集合住宅": { "1G": 4180, "10G": 6380 } },
+                prices_tv: { "戸建": { "1G": 5170, "10G": 5830 }, "集合住宅": { "1G": 4180, "10G": 5830 } },
+                options: { tv: 990 },
+                phone_construction: { new: 1100, port: 3300 },
+                construction: { "戸建": 29700, "集合住宅": 29700 },
+                construction_tv: 31680,
+                tv_service_fee: 3080,
+                installments: { default: 24, tv: 60 },
+                installments_detail: {
+                    no_tv: {
+                        net: { regular: 1238, last: 1226, count: 24 },
+                        phone_port: { regular: 138, last: 126, count: 24 }
+                    },
+                    with_tv: {
+                        net: { regular: 495, count: 60 },
+                        phone_port: { regular: 55, count: 60 },
+                        tv: { regular: 528, count: 60 }
+                    }
+                },
+                campaign: {
+                    construction_fee_support: true,
+                    monthly_discount_to_0: true
+                }
+            },
+            biglobe: {
+                name: "ビッグローブ光",
+                contract_fee: 3300,
+                prices: { "戸建": { "1G": 5478, "10G": 6710 }, "集合住宅": { "1G": 4378, "10G": 6710 } },
+                options: { phone: 550, tv: 990, router: 550, router_10g_bundle: 110, discount: -550 },
+                phone_construction: { new: 2750, port: 4950 },
+                construction: { "戸建": 28600, "集合住宅": 28600 },
+                construction_tv: 23100,
+                tv_service_fee: 3080,
+                installments: { default: 36 },
+                installments_detail: {
+                    net: { first: 880, regular: 792, count: 36 }
+                },
+                campaign: {
+                    construction_fee_support: true,
+                    monthly_discount_to_500: true
+                }
+            }
+        };
+
+        // --- DOM要素取得 ---
+        const housingTypeEl = document.getElementById('housing-type');
+        const speedPlanEl = document.getElementById('speed-plan');
+        const optionPhoneEl = document.getElementById('option-phone');
+        const phoneTypeWrapperEl = document.getElementById('phone-type-wrapper');
+        const optionTvEl = document.getElementById('option-tv');
+        const optionRouterEl = document.getElementById('option-router');
+        const tvOptionWrapperEl = document.getElementById('tv-option-wrapper');
+        const calculateBtn = document.getElementById('calculate-btn');
+        const resultsArea = document.getElementById('results-area');
+        const resultsContainer = document.getElementById('results-container');
+        const paymentModal = document.getElementById('payment-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+
+        // --- イベントリスナー ---
+        housingTypeEl.addEventListener('change', () => {
+            tvOptionWrapperEl.style.display = housingTypeEl.value === '戸建' ? 'flex' : 'none';
+            if (housingTypeEl.value === '集合住宅') optionTvEl.checked = false;
+        });
+
+        optionPhoneEl.addEventListener('change', () => {
+            phoneTypeWrapperEl.classList.toggle('show', optionPhoneEl.checked);
+        });
+
+        calculateBtn.addEventListener('click', () => {
+            const inputs = getUserInputs();
+            displayResults(inputs);
+        });
+        
+        resultsContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('.campaign-button, .tab-button, .payment-estimate-btn');
+            if (!button) return;
+
+            const card = button.closest('.result-card');
+            if (!card) return;
+
+            if (button.classList.contains('tab-button')) {
+                button.parentElement.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+            } else if (button.classList.contains('campaign-button')) {
+                button.classList.toggle('active');
+            }
+            
+            if (button.classList.contains('payment-estimate-btn') && !button.disabled) {
+                const result = getCalculationResult(card);
+                displayPaymentTimelineModal(result);
+            } else {
+                 updateCard(card);
+            }
+        });
+
+        modalCloseBtn.addEventListener('click', () => paymentModal.classList.add('hidden'));
+        paymentModal.addEventListener('click', (e) => {
+            if (e.target === paymentModal) {
+                paymentModal.classList.add('hidden');
+            }
+        });
+
+        // --- 関数定義 ---
+        function getUserInputs() {
+            return {
+                housing: housingTypeEl.value,
+                speed: speedPlanEl.value,
+                phone: optionPhoneEl.checked,
+                phoneType: document.querySelector('input[name="phone-type"]:checked').value,
+                tv: housingTypeEl.value === '戸建' && optionTvEl.checked,
+                router: optionRouterEl.checked
+            };
+        }
+
+        function displayResults(inputs) {
+            resultsContainer.innerHTML = '';
+            const results = [
+                calculateCommufa(inputs, 'エンジョイ', false),
+                calculateDocomo(inputs, 'A', false),
+                calculateSoftbank(inputs, false),
+                calculateBiglobe(inputs, false)
+            ];
+            resultsContainer.innerHTML = results.map(result => createCardHTML(result, inputs)).join('');
+
+            const cards = resultsContainer.querySelectorAll('.result-card');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 100}ms`;
+                card.classList.add('stagger-in');
+                const result = results[index];
+                updateCardDOM(card, result);
+            });
+
+            resultsArea.classList.remove('hidden');
+            resultsArea.classList.add('fade-in');
+        }
+        
+        function createCardHTML(result, inputs) {
+            let tabsHTML = '';
+            if (result.id === 'docomo') {
+                tabsHTML = `<div class="flex rounded-lg p-1 bg-gray-200 my-4"><button class="docomo-type-btn tab-button flex-1 py-1 px-2 rounded-md text-sm font-medium active" data-type="A">タイプA</button><button class="docomo-type-btn tab-button flex-1 py-1 px-2 rounded-md text-sm font-medium" data-type="B">タイプB</button></div>`;
+            }
+            if (result.id === 'commufa' && inputs.speed === '1G') {
+                tabsHTML = `<div class="flex rounded-lg p-1 bg-gray-200 my-4"><button class="commufa-type-btn tab-button flex-1 py-1 px-2 rounded-md text-sm font-medium active" data-type="エンジョイ">エンジョイ</button><button class="commufa-type-btn tab-button flex-1 py-1 px-2 rounded-md text-sm font-medium" data-type="TNC">TNC</button></div>`;
+            }
+            return `<div id="card-${result.id}" class="result-card bg-white p-6 rounded-2xl shadow-lg flex flex-col border-indigo-500">
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-2xl font-bold text-gray-800">${result.name}</h3>
+                            <div class="flex flex-col items-end space-y-2">
+                                <button class="campaign-button text-xs font-bold py-2 px-3 rounded-lg flex items-center space-x-1.5 shadow-sm hover:shadow-md">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h10a3 3 0 013 3v5a.997.997 0 01-.293.707zM5 4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" /></svg>
+                                    <span>キャンペーン</span>
+                                </button>
+                                <button class="payment-estimate-btn text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center space-x-1.5 shadow-sm hover:shadow-md" disabled>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" /><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" /></svg>
+                                    <span>支払目安</span>
+                                </button>
+                            </div>
+                        </div>
+                        ${tabsHTML}
+                        <div class="content-wrapper flex-grow">${getCardContentHTML(result)}</div>
+                    </div>`;
+        }
+
+        function getCalculationResult(card) {
+            const serviceId = card.id.replace('card-', '');
+            const inputs = getUserInputs();
+            const isCampaignApplied = card.querySelector('.campaign-button')?.classList.contains('active');
+            
+            switch(serviceId) {
+                case 'commufa':
+                    const commufaType = card.querySelector('.commufa-type-btn.active')?.dataset.type || 'エンジョイ';
+                    return calculateCommufa(inputs, commufaType, isCampaignApplied);
+                case 'docomo':
+                    const docomoType = card.querySelector('.docomo-type-btn.active')?.dataset.type || 'A';
+                    return calculateDocomo(inputs, docomoType, isCampaignApplied);
+                case 'softbank':
+                    return calculateSoftbank(inputs, isCampaignApplied);
+                case 'biglobe':
+                    return calculateBiglobe(inputs, isCampaignApplied);
+            }
+        }
+
+        function updateCard(card) {
+            const result = getCalculationResult(card);
+            const contentWrapper = card.querySelector('.content-wrapper');
+            if (contentWrapper) {
+                contentWrapper.innerHTML = getCardContentHTML(result);
+            }
+            updateCardDOM(card, result);
+        }
+
+        function updateCardDOM(cardElement, result) {
+            const campaignButton = cardElement.querySelector('.campaign-button');
+            if (campaignButton) {
+                const span = campaignButton.querySelector('span');
+                if (span) {
+                    span.textContent = result.campaignApplied ? 'キャンペーン解除' : 'キャンペーン適用';
+                }
+            }
+
+            const estimateBtn = cardElement.querySelector('.payment-estimate-btn');
+            if (estimateBtn) {
+                if (result.campaignApplied) {
+                    estimateBtn.disabled = false;
+                    estimateBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    estimateBtn.classList.add('bg-teal-500', 'hover:bg-teal-600');
+                } else {
+                    estimateBtn.disabled = true;
+                    estimateBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    estimateBtn.classList.remove('bg-teal-500', 'hover:bg-teal-600');
+                }
+            }
+        }
+
+        function createOptionHTML(opt) {
+            if (!opt) return '';
+            if (typeof opt.price === 'string') {
+                return `<div class="flex justify-between ${opt.price === '不可' ? 'text-gray-500' : ''}"><span>${opt.name}</span><span>${opt.price}</span></div>`;
+            }
+            const sign = opt.price >= 0 ? '+' : '-';
+            const price = Math.abs(opt.price);
+            const color = opt.price >= 0 ? '' : 'text-rose-600';
+            return `<div class="flex justify-between ${color}"><span>${opt.name}</span><span>${sign} ${price.toLocaleString()}円</span></div>`;
+        }
+        
+        function getCardContentHTML(result) {
+            const discountItem = result.optionsBreakdown.find(opt => opt.name.includes('スタート割') || opt.name.includes('特典') || opt.name.includes('おうち割'));
+            const campaignDiscountItem = result.optionsBreakdown.find(opt => opt.name.includes('キャンペーン割引'));
+            const otherOptions = result.optionsBreakdown.filter(opt => 
+                !opt.name.includes('スタート割') && 
+                !opt.name.includes('特典') &&
+                !opt.name.includes('キャンペーン割引') &&
+                !opt.name.includes('おうち割')
+            );
+
+            let monthlyFeeHTML = `<p class="text-center text-4xl font-bold my-2 text-gray-900">${result.totalMonthly.toLocaleString()}円<span class="text-lg font-medium text-gray-600">/月</span></p>`;
+            if (result.campaignApplied && result.campaignDuration > 0) {
+                monthlyFeeHTML = `
+                <div class="text-center my-2">
+                    <p class="text-4xl font-bold text-rose-600">${result.totalMonthly.toLocaleString()}円<span class="text-lg font-medium">/月</span></p>
+                    <p class="text-xs text-rose-600">(${result.campaignDuration}ヶ月間)</p>
+                    <p class="text-sm text-gray-600 mt-1">終了後: ${result.regularMonthly.toLocaleString()}円/月</p>
+                </div>`;
+            }
+
+            const otherOptionsHTML = otherOptions.map(opt => {
+                let html = createOptionHTML(opt);
+                if (result.id === 'softbank' && result.speed === '10G' && opt.name.includes('ホームゲートウェイ') && campaignDiscountItem) {
+                    html += createOptionHTML(campaignDiscountItem);
+                }
+                return html;
+            }).join('');
+            
+            let oneTimeCostsHTML = `<div class="flex justify-between"><span>契約事務手数料</span><span>${result.oneTimeCosts.contractFeeHTML}</span></div>`;
+            if (result.oneTimePhoneCost > 0) {
+                oneTimeCostsHTML += `<div class="flex justify-between"><span>光電話 工事費</span><span>${result.oneTimeCosts.phoneHTML}</span></div>`;
+            }
+            if (result.tvServiceFee > 0) {
+                oneTimeCostsHTML += `<div class="flex justify-between"><span>テレビ視聴サービス料</span><span>${result.tvServiceFee.toLocaleString()}円</span></div>`;
+            }
+            if (result.id === 'biglobe' && result.constructionFeeTv > 0) {
+                oneTimeCostsHTML += `<div class="flex justify-between"><span>テレビ工事費</span><span>${result.constructionFeeTv.toLocaleString()}円</span></div>`;
+            }
+
+            let installmentCostsHTML = `<div class="flex justify-between"><span>ネット工事費</span><span>${result.installmentCosts.netHTML}</span></div>`;
+            if (result.id !== 'biglobe' && result.constructionFeeTv > 0) {
+                 installmentCostsHTML += `<div class="flex justify-between"><span>テレビ工事費</span><span>${result.installmentCosts.tvHTML}</span></div>`;
+            }
+            if (result.installmentPhoneCost > 0) {
+                installmentCostsHTML += `<div class="flex justify-between"><span>光電話 工事費</span><span>${result.installmentCosts.phoneHTML}</span></div>`;
+            }
+            
+            return `
+                <p class="text-center text-gray-600 text-sm mt-2">月額利用料</p>
+                ${monthlyFeeHTML}
+                <div class="border-t border-gray-200 pt-4 mt-4 space-y-2 text-sm">
+                    <p class="font-semibold text-gray-700 mb-2">【内訳】</p>
+                    <div class="flex justify-between"><span>基本料金</span><span>${result.baseFee.toLocaleString()}円</span></div>
+                    ${campaignDiscountItem && !(result.id === 'softbank' && result.speed === '10G') ? createOptionHTML(campaignDiscountItem) : ''}
+                    ${createOptionHTML(discountItem)}
+                    ${otherOptionsHTML}
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg mt-4 text-sm space-y-3">
+                    <div>
+                        <p class="font-semibold text-center text-gray-700 mb-2">初期費用 (一括払い)</p>
+                        <div class="space-y-1">${oneTimeCostsHTML}</div>
+                        <div class="border-t border-gray-200 mt-2 pt-2 text-right font-bold">総額: ${result.oneTimeCostsTotal.toLocaleString()}円</div>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-center text-gray-700 mb-2">分割払いの費用</p>
+                        <div class="space-y-1">${installmentCostsHTML}</div>
+                        <div class="border-t border-gray-200 mt-2 pt-2 text-right font-bold">${result.campaignApplied && result.id !== 'commufa' ? `総額: 実質${result.installmentCostsTotal.toLocaleString()}円` : `総額: ${result.installmentCostsTotal.toLocaleString()}円`}</div>
+                        <div class="text-right text-xs text-gray-600 mt-1">${result.installmentText}</div>
+                    </div>
+                </div>
+                <div class="campaign-details ${result.campaignApplied ? 'show' : ''} bg-indigo-50 border-l-4 border-indigo-500 text-indigo-800 p-4 mt-4 rounded-r-lg">
+                    <p class="font-bold">${result.campaignTitle}</p>
+                    <p class="text-xs mt-1" style="white-space: pre-wrap;">${result.campaignContent}</p>
+                </div>
+                `;
+        }
+        
+        function formatInstallmentText(detail) {
+            if (!detail || !detail.regular) return '';
+            const { first, regular, last, count } = detail;
+
+            if (first && first !== regular) {
+                return `(初回${first.toLocaleString()}円, 2回目以降${regular.toLocaleString()}円/月 合計${count}回)`;
+            } else if (last && last !== regular) {
+                return `(${regular.toLocaleString()}円/月, 最終回のみ${last.toLocaleString()}円 合計${count}回)`;
+            } else {
+                return `(${regular.toLocaleString()}円/月 合計${count}回)`;
+            }
+        }
+        
+        function displayPaymentTimelineModal(result) {
+            if (!result.timeline) return;
+            modalTitle.textContent = `${result.name} - 支払料金の目安`;
+            
+            const { headers, rows, notes } = result.timeline;
+
+            let tableHTML = '<table><thead><tr>';
+            headers.forEach(header => tableHTML += `<th>${header}</th>`);
+            tableHTML += '</tr></thead><tbody>';
+
+            const rowOrder = ['基本料金', 'オプション料金', '工事費(分割)', '工事費割引', '割引', 'キャンペーン割引', '事務手数料', 'テレビ視聴サービス料', '工事費(一括)', '月々支払金額(合計)'];
+            
+            rowOrder.forEach(key => {
+                const row = rows.find(r => r.values['項目'] === key);
+                if (row) {
+                    tableHTML += `<tr ${row.isTotal ? 'class="font-bold bg-gray-100"' : ''}>`;
+                    headers.forEach((header) => {
+                        const value = row.values[header];
+                        const formattedValue = typeof value === 'number' ? `${value.toLocaleString()}円` : (value || '-');
+                        tableHTML += `<td>${formattedValue}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                }
+            });
+            
+            tableHTML += '</tbody></table>';
+
+            if (notes) {
+                tableHTML += `<div class="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700">
+                                    <p class="font-bold">${notes.title}</p>
+                                    <p class="text-xs mt-1">${notes.content}</p>
+                                  </div>`;
+            }
+
+            modalContent.innerHTML = tableHTML;
+            paymentModal.classList.remove('hidden');
+            paymentModal.classList.add('flex');
+        }
+
+        function getTimelineRowTemplate() {
+            return {
+                '基本料金': {}, 'オプション料金': {}, '工事費(分割)': {}, '工事費割引': {}, '割引': {}, 'キャンペーン割引': {},
+                '事務手数料': {}, 'テレビ視聴サービス料': {}, '工事費(一括)': {}, '月々支払金額(合計)': {}
+            };
+        }
+
+        // --- 各社料金計算ロジック ---
+        function calculateCommufa(inputs, planType, campaignApplied) {
+            const data = serviceData.commufa;
+            const baseFee = inputs.speed === '1G' ? data.prices[planType][inputs.housing]['1G'] : data.prices['10G'][inputs.housing];
+            let optionsBreakdown = [];
+            if (inputs.phone || inputs.tv) optionsBreakdown.push({ name: '光電話', price: data.options.phone });
+            if (inputs.tv) {
+                optionsBreakdown.push({ name: 'テレビオプション', price: data.options.tv });
+                optionsBreakdown.push({ name: 'ギガトリプル割', price: data.options.gigaTripleDiscount });
+            }
+            if (inputs.router) optionsBreakdown.push({ name: 'ルーターレンタル', price: '無料' });
+            optionsBreakdown.push({ name: 'スタート割/長期継続割引', price: data.options.discount });
+            
+            const oneTimePhoneCost = (inputs.phone || inputs.tv) ? data.phone_construction[inputs.phoneType] : 0;
+            let oneTimeCosts = { contractFee: data.contract_fee, phone: oneTimePhoneCost };
+            
+            let constructionFeeNet = data.construction[inputs.housing];
+            let constructionFeeTv = inputs.tv ? data.construction_tv : 0;
+            let installmentCosts = { net: constructionFeeNet, tv: constructionFeeTv };
+
+            let campaignTitle = "", campaignContent = "", campaignDuration = 0, regularMonthly = 0, totalMonthly = 0;
+            const optionFee = optionsBreakdown.filter(opt => typeof opt.price === 'number' && !opt.name.includes('割引')).reduce((sum, opt) => sum + opt.price, 0);
+            const discountFee = optionsBreakdown.filter(opt => typeof opt.price === 'number' && opt.name.includes('割引')).reduce((sum, opt) => sum + opt.price, 0);
+            
+            regularMonthly = baseFee + optionFee + discountFee;
+            totalMonthly = regularMonthly;
+            let timeline = null;
+
+            if (campaignApplied) {
+                oneTimeCosts.contractFee = 0;
+                oneTimeCosts.phone = 0;
+                installmentCosts.net = 0;
+                installmentCosts.tv = 0;
+                const campaignDiscount = data.campaign.monthly_discount[inputs.speed][inputs.housing];
+                campaignDuration = 12;
+                optionsBreakdown.push({ name: `キャンペーン割引(${campaignDuration}ヶ月間)`, price: campaignDiscount });
+                totalMonthly += campaignDiscount;
+
+                campaignTitle = "コミュファ光 適用キャンペーン";
+                campaignContent = `<b>コミュファ光1年間割引キャンペーン</b> (総額${(campaignDiscount * 11).toLocaleString()}円割引)\n内容: 2ヶ月目から1年間基本料金を割引 (${campaignDiscount.toLocaleString()}円/月)\n\n<b>初期費用0円キャンペーン</b>\n内容: 契約事務手数料、電話工事費が0円\n\n<b>工事費0円キャンペーン</b>\n内容: スタート割対象メニュー契約かつ安心サポートPlus同時申込でネット・テレビ工事費が0円`;
+                
+                // Timeline data generation
+                const ispDiscountData = data.campaign.isp_discount?.[planType];
+                let ispDiscountAmount = (ispDiscountData && (inputs.speed === '1G' ? ispDiscountData['1G']?.[inputs.housing] : ispDiscountData['10G'])) || 0;
+                const ispDiscountDuration = ispDiscountData?.duration || 0;
+
+                const phoneFee = (inputs.phone || inputs.tv) ? data.options.phone : 0;
+                const tvFee = inputs.tv ? data.options.tv : 0;
+                const startDiscount = data.options.discount;
+                const tripleDiscount = inputs.tv ? data.options.gigaTripleDiscount : 0;
+                const totalOptionFee = phoneFee + tvFee;
+                const permanentDiscount = startDiscount + tripleDiscount;
+
+                const headers = ['項目'];
+                const rowsData = getTimelineRowTemplate();
+
+                // Period 1: First Month
+                headers.push('利用開始月');
+                rowsData['基本料金']['利用開始月'] = baseFee;
+                rowsData['キャンペーン割引']['利用開始月'] = ispDiscountDuration >= 1 ? ispDiscountAmount : 0;
+                rowsData['月々支払金額(合計)']['利用開始月'] = baseFee + (ispDiscountDuration >= 1 ? ispDiscountAmount : 0);
+
+                // Period 2: Second Month (if TNC)
+                if (planType === 'TNC' && ispDiscountDuration >= 2) {
+                    headers.push('2ヶ月目');
+                    rowsData['基本料金']['2ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['2ヶ月目'] = totalOptionFee;
+                    rowsData['割引']['2ヶ月目'] = permanentDiscount;
+                    rowsData['キャンペーン割引']['2ヶ月目'] = campaignDiscount + ispDiscountAmount;
+                    rowsData['月々支払金額(合計)']['2ヶ月目'] = baseFee + totalOptionFee + permanentDiscount + campaignDiscount + ispDiscountAmount;
+                }
+
+                // Period 3: Rest of the first year
+                const period3Header = planType === 'TNC' ? '3～12ヶ月目' : '2～12ヶ月目';
+                headers.push(period3Header);
+                rowsData['基本料金'][period3Header] = baseFee;
+                rowsData['オプション料金'][period3Header] = totalOptionFee;
+                rowsData['割引'][period3Header] = permanentDiscount;
+                rowsData['キャンペーン割引'][period3Header] = campaignDiscount;
+                rowsData['月々支払金額(合計)'][period3Header] = baseFee + totalOptionFee + permanentDiscount + campaignDiscount;
+
+                // Period 4: After first year
+                headers.push('13ヶ月目～');
+                rowsData['基本料金']['13ヶ月目～'] = baseFee;
+                rowsData['オプション料金']['13ヶ月目～'] = totalOptionFee;
+                rowsData['割引']['13ヶ月目～'] = permanentDiscount;
+                rowsData['月々支払金額(合計)']['13ヶ月目～'] = baseFee + totalOptionFee + permanentDiscount;
+
+                const finalRows = Object.keys(rowsData).map(key => ({
+                    isTotal: key.includes('合計'),
+                    values: { '項目': key, ...rowsData[key] }
+                }));
+
+                timeline = { headers, rows: finalRows };
+            }
+            
+            const oneTimeCostsTotal = oneTimeCosts.contractFee + oneTimeCosts.phone;
+            const installmentCostsTotal = installmentCosts.net + installmentCosts.tv;
+            const installments = inputs.tv ? data.installments.tv : data.installments.default;
+            const regularPayment = Math.floor(installmentCostsTotal / installments);
+            const firstPayment = installmentCostsTotal - (regularPayment * (installments - 1));
+            const installmentText = formatInstallmentText({first: firstPayment, regular: regularPayment, count: installments});
+            
+            oneTimeCosts.contractFeeHTML = campaignApplied ? `<del>${data.contract_fee.toLocaleString()}円</del> → 0円` : `${data.contract_fee.toLocaleString()}円`;
+            oneTimeCosts.phoneHTML = campaignApplied ? `<del>${oneTimePhoneCost.toLocaleString()}円</del> → 0円` : `${oneTimePhoneCost.toLocaleString()}円`;
+            installmentCosts.netHTML = campaignApplied ? `<del>${constructionFeeNet.toLocaleString()}円</del> → 0円` : `${constructionFeeNet.toLocaleString()}円`;
+            installmentCosts.tvHTML = campaignApplied ? `<del>${constructionFeeTv.toLocaleString()}円</del> → 0円` : `${constructionFeeTv.toLocaleString()}円`;
+
+            return { id: 'commufa', name: data.name, baseFee, totalMonthly, regularMonthly, optionsBreakdown, oneTimePhoneCost, installmentPhoneCost: 0, constructionFeeNet, constructionFeeTv, tvServiceFee: 0, oneTimeCostsTotal, installmentCostsTotal, campaignApplied, oneTimeCosts, installmentCosts, installmentText, campaignTitle, campaignContent, campaignDuration, timeline };
+        }
+
+        function calculateDocomo(inputs, type, campaignApplied) {
+            const data = serviceData.docomo;
+            const baseFee = data.prices[type][inputs.housing][inputs.speed];
+            let optionsBreakdown = [];
+            if (inputs.phone) optionsBreakdown.push({ name: '光電話', price: data.options.phone });
+            if (inputs.tv) optionsBreakdown.push({ name: 'テレビオプション', price: data.options.tv });
+            if (inputs.router) {
+                if (inputs.speed === '1G') optionsBreakdown.push({ name: 'ルーターレンタル', price: '不可' });
+                else {
+                    const routerPrice = inputs.phone ? data.options.router_10g_bundle : data.options.router_10g;
+                    optionsBreakdown.push({ name: 'ルーターレンタル', price: routerPrice });
+                }
+            }
+            
+            const oneTimePhoneCost = 0;
+            const installmentPhoneCost = inputs.phone ? data.phone_construction[inputs.phoneType] : 0;
+            const tvServiceFee = inputs.tv ? data.tv_service_fee : 0;
+            const oneTimeCosts = { contractFee: data.contract_fee, phone: oneTimePhoneCost };
+            const oneTimeCostsTotal = oneTimeCosts.contractFee + oneTimeCosts.phone + tvServiceFee;
+            const constructionFeeNet = data.construction[inputs.housing];
+            const constructionFeeTv = inputs.tv ? data.construction_tv : 0;
+            let installmentCostsTotal = constructionFeeNet + constructionFeeTv + installmentPhoneCost;
+            
+            let campaignTitle = "ドコモ光 適用キャンペーン", campaignContent = "", campaignDuration = 0, regularMonthly = 0, totalMonthly = 0;
+            const optionFee = optionsBreakdown.filter(opt => typeof opt.price === 'number').reduce((sum, opt) => sum + opt.price, 0);
+            regularMonthly = baseFee + optionFee;
+            totalMonthly = regularMonthly;
+            let timeline = null;
+            
+            if (campaignApplied) {
+                let campaignDiscount = 0;
+                if (inputs.speed === '10G') {
+                    campaignDiscount = -(baseFee - 500);
+                    campaignDuration = 6;
+                    optionsBreakdown.push({ name: `キャンペーン割引(${campaignDuration}ヶ月間)`, price: campaignDiscount });
+                    totalMonthly += campaignDiscount;
+                    campaignContent = `<b>ドコモ光 10ギガ基本料金最大6か月間ワンコインキャンペーン</b> (総額${Math.abs(campaignDiscount * 6).toLocaleString()}円割引)\n内容: 6ヶ月間基本料金500円`;
+                }
+                installmentCostsTotal = constructionFeeTv + installmentPhoneCost; // ネット工事費は実質無料
+                if (campaignContent) campaignContent += "\n\n";
+                campaignContent += "<b>新規工事料実質0円特典</b>\n内容: 新規工事料相当のdポイントをプレゼント";
+                
+                // Timeline
+                const phoneFee = inputs.phone ? data.options.phone : 0;
+                const tvFeeRegular = inputs.tv ? data.options.tv : 0;
+                const tvFeeFirstMonth = inputs.tv ? 495 : 0;
+                const routerFee = (inputs.speed === '10G' && optionsBreakdown.find(o => o.name.includes('ルーター'))?.price) || 0;
+                const totalOptionFee = phoneFee + tvFeeRegular + routerFee;
+                const totalOptionFeeFirstMonth = phoneFee + tvFeeFirstMonth + routerFee;
+
+                const headers = ['項目', '1ヶ月目'];
+                const rowsData = getTimelineRowTemplate();
+                
+                // 1ヶ月目
+                rowsData['基本料金']['1ヶ月目'] = baseFee;
+                rowsData['オプション料金']['1ヶ月目'] = totalOptionFeeFirstMonth;
+                rowsData['キャンペーン割引']['1ヶ月目'] = campaignDiscount;
+                rowsData['事務手数料']['1ヶ月目'] = data.contract_fee;
+                rowsData['テレビ視聴サービス料']['1ヶ月目'] = tvServiceFee;
+                rowsData['月々支払金額(合計)']['1ヶ月目'] = baseFee + totalOptionFeeFirstMonth + data.contract_fee + tvServiceFee + campaignDiscount;
+
+                // 工事費分割計算
+                let inst = data.installments_detail;
+                let instTotalFirst = inst.net.first;
+                let instTotalRegular = inst.net.regular;
+                if (installmentPhoneCost > 0) {
+                    const phoneDetail = inputs.phoneType === 'new' ? inst.phone_new : inst.phone_port;
+                    instTotalFirst += phoneDetail.first;
+                    instTotalRegular += phoneDetail.regular;
+                }
+                if (constructionFeeTv > 0) {
+                    instTotalFirst += inst.tv.first;
+                    instTotalRegular += inst.tv.regular;
+                }
+                
+                const notes = {
+                    title: "dポイント特典",
+                    content: `別途、新規工事料(${constructionFeeNet.toLocaleString()}円)相当のdポイントが進呈されます。`
+                };
+
+                headers.push('2ヶ月目');
+                rowsData['基本料金']['2ヶ月目'] = baseFee;
+                rowsData['オプション料金']['2ヶ月目'] = totalOptionFee;
+                rowsData['工事費(分割)']['2ヶ月目'] = instTotalFirst;
+                rowsData['キャンペーン割引']['2ヶ月目'] = campaignDiscount;
+                rowsData['月々支払金額(合計)']['2ヶ月目'] = baseFee + totalOptionFee + instTotalFirst + campaignDiscount;
+
+                // 3ヶ月目以降
+                if (inputs.speed === '10G' && campaignDiscount !== 0) {
+                    headers.push('3～6ヶ月目', '7～25ヶ月目', '26ヶ月目～');
+                    rowsData['基本料金']['3～6ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['3～6ヶ月目'] = totalOptionFee;
+                    rowsData['工事費(分割)']['3～6ヶ月目'] = instTotalRegular;
+                    rowsData['キャンペーン割引']['3～6ヶ月目'] = campaignDiscount;
+                    rowsData['月々支払金額(合計)']['3～6ヶ月目'] = baseFee + totalOptionFee + instTotalRegular + campaignDiscount;
+                    
+                    rowsData['基本料金']['7～25ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['7～25ヶ月目'] = totalOptionFee;
+                    rowsData['工事費(分割)']['7～25ヶ月目'] = instTotalRegular;
+                    rowsData['月々支払金額(合計)']['7～25ヶ月目'] = baseFee + totalOptionFee + instTotalRegular;
+                    
+                    rowsData['基本料金']['26ヶ月目～'] = baseFee;
+                    rowsData['オプション料金']['26ヶ月目～'] = totalOptionFee;
+                    rowsData['月々支払金額(合計)']['26ヶ月目～'] = baseFee + totalOptionFee;
+                } else {
+                    headers.push('3～25ヶ月目', '26ヶ月目～');
+                    rowsData['基本料金']['3～25ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['3～25ヶ月目'] = totalOptionFee;
+                    rowsData['工事費(分割)']['3～25ヶ月目'] = instTotalRegular;
+                    rowsData['月々支払金額(合計)']['3～25ヶ月目'] = baseFee + totalOptionFee + instTotalRegular;
+                    
+                    rowsData['基本料金']['26ヶ月目～'] = baseFee;
+                    rowsData['オプション料金']['26ヶ月目～'] = totalOptionFee;
+                    rowsData['月々支払金額(合計)']['26ヶ月目～'] = baseFee + totalOptionFee;
+                }
+                
+                const finalRows = Object.keys(rowsData).map(key => ({
+                    isTotal: key.includes('合計'),
+                    values: { '項目': key, ...rowsData[key] }
+                }));
+                timeline = { headers, rows: finalRows, notes };
+            }
+            
+            const installments = data.installments.default;
+            
+            let first = 0, regular = 0;
+            if (!campaignApplied) {
+                first += data.installments_detail.net.first;
+                regular += data.installments_detail.net.regular;
+            }
+             if(constructionFeeTv > 0) {
+                first += data.installments_detail.tv.first;
+                regular += data.installments_detail.tv.regular;
+             }
+             if(installmentPhoneCost > 0) {
+                const phoneDetail = inputs.phoneType === 'new' ? data.installments_detail.phone_new : data.installments_detail.phone_port;
+                first += phoneDetail.first;
+                regular += phoneDetail.regular;
+             }
+
+            if (!campaignApplied) {
+                installmentText = formatInstallmentText({first, regular, count: installments});
+            } else {
+                installmentText = `(ネット工事費 実質0円)`;
+                if (first > 0) {
+                    installmentText += ` 別途 ${formatInstallmentText({first, regular, count: installments})}`;
+                }
+            }
+            
+            const netHTML = campaignApplied ? `<del>${constructionFeeNet.toLocaleString()}円</del> → 実質0円` : `${constructionFeeNet.toLocaleString()}円`;
+            const tvHTML = `${constructionFeeTv.toLocaleString()}円`;
+            const phoneHTML = `${installmentPhoneCost.toLocaleString()}円`;
+            
+            return { id: 'docomo', name: (type === 'A' ? data.name : `${data.name} (タイプB)`), baseFee, totalMonthly, regularMonthly, optionsBreakdown, oneTimePhoneCost, installmentPhoneCost, constructionFeeNet, constructionFeeTv, tvServiceFee, oneTimeCostsTotal, installmentCostsTotal, campaignApplied, oneTimeCosts: { ...oneTimeCosts, contractFeeHTML: `${oneTimeCosts.contractFee.toLocaleString()}円`, phoneHTML: `${oneTimeCosts.phone.toLocaleString()}円` }, installmentCosts: { netHTML, tvHTML, phoneHTML }, installmentText, campaignTitle, campaignContent, campaignDuration, timeline };
+        }
+
+        function calculateSoftbank(inputs, campaignApplied) {
+            const data = serviceData.softbank;
+            let baseFee = inputs.tv ? data.prices_tv[inputs.housing][inputs.speed] : data.prices[inputs.housing][inputs.speed];
+            let optionsBreakdown = [];
+            let homeGatewayFee = 0;
+            
+            if (inputs.speed === '1G') {
+                if (inputs.phone || inputs.router) {
+                    const bbUnit = { name: 'BBユニットレンタル', price: 513 };
+                    const wifiPack = { name: 'WiFiマルチパック', price: 1089 };
+                    optionsBreakdown.push(bbUnit, wifiPack);
+                    let thirdItem;
+                    if (inputs.phone) {
+                        thirdItem = { name: '光電話(N)', price: 550 };
+                    } else {
+                        thirdItem = { name: 'BBフォン', price: 0 };
+                    }
+                    optionsBreakdown.push(thirdItem);
+                    const total = bbUnit.price + wifiPack.price + thirdItem.price;
+                    const discount = { name: 'おうち割', price: -(total - 550) };
+                    optionsBreakdown.push(discount);
+                }
+            } else { // 10G
+                homeGatewayFee = 550;
+                optionsBreakdown.push({ name: 'ホームゲートウェイ(S)', price: homeGatewayFee });
+                if (inputs.phone) {
+                    const phoneN = { name: '光電話(N)', price: 550 };
+                    const wifiPack = { name: 'WiFiマルチパック', price: 1089 };
+                    const discount = { name: 'おうち割', price: -(phoneN.price + wifiPack.price - 550) };
+                    optionsBreakdown.push(phoneN, wifiPack, discount);
+                }
+            }
+
+            if (inputs.tv) optionsBreakdown.push({ name: 'テレビオプション', price: data.options.tv });
+            
+            let campaignTitle = "SoftBank光 適用キャンペーン", campaignContent = "", installmentText = "", campaignDuration = 0, regularMonthly = 0, totalMonthly = 0;
+            let optionFee = optionsBreakdown.filter(opt => typeof opt.price === 'number').reduce((sum, opt) => sum + opt.price, 0);
+            regularMonthly = baseFee + optionFee;
+            totalMonthly = regularMonthly;
+            
+            let oneTimePhoneCost = 0, installmentPhoneCost = 0;
+            if (inputs.phone) {
+                if (inputs.phoneType === 'new') oneTimePhoneCost = data.phone_construction.new;
+                else installmentPhoneCost = data.phone_construction.port;
+            }
+            const constructionFeeNet = data.construction[inputs.housing];
+            const constructionFeeTv = inputs.tv ? data.construction_tv : 0;
+            let installmentCostsTotal = constructionFeeNet + constructionFeeTv + installmentPhoneCost;
+            let timeline = null;
+
+            if(campaignApplied) {
+                campaignDuration = 3;
+                let campaignDiscount = 0;
+                if(inputs.speed === '1G') {
+                    const totalDiscount = baseFee * 3;
+                    campaignDiscount = -baseFee;
+                    campaignContent = `<b>SoftBank光・1ギガ めちゃトク割</b> (総額${totalDiscount.toLocaleString()}円割引)\n内容: 3ヶ月間基本料金0円\n\n<b>工事費サポート はじめて割</b>\n内容: 7ヶ月目から31ヶ月目まで1,320円割引`;
+                } else { // 10G
+                    const totalDiscount = (baseFee + homeGatewayFee) * 3;
+                    campaignDiscount = -(baseFee + homeGatewayFee);
+                    campaignContent = `<b>SoftBank光・10ギガめちゃトク割</b> (総額${totalDiscount.toLocaleString()}円割引)\n内容: 3ヶ月間基本料金、ホームゲートウェイ(S)利用料金0円\n\n<b>10ギガ 工事費あんしんキャンペーン</b>\n内容: 7ヶ月目から31ヶ月目まで1,320円割引`;
+                }
+                optionsBreakdown.push({ name: `キャンペーン割引(${campaignDuration}ヶ月間)`, price: campaignDiscount });
+                totalMonthly += campaignDiscount;
+                installmentCostsTotal = constructionFeeTv + installmentPhoneCost; // ネット工事費は実質無料
+
+                // Timeline
+                const headers = ['項目'];
+                const rowsData = getTimelineRowTemplate();
+
+                const detail = inputs.tv ? data.installments_detail.with_tv : data.installments_detail.no_tv;
+                const instCount = inputs.tv ? 60 : 24;
+                
+                let instNetRegular = detail.net.regular || 0;
+                let instNetLast = detail.net.last || instNetRegular;
+                let instTv = inputs.tv ? (detail.tv.regular || 0) : 0;
+                let instPhoneRegular = 0, instPhoneLast = 0;
+                if (installmentPhoneCost > 0) {
+                    instPhoneRegular = detail.phone_port.regular || 0;
+                    instPhoneLast = detail.phone_port.last || instPhoneRegular;
+                }
+                
+                const instTotalRegular = instNetRegular + instTv + instPhoneRegular;
+                const instTotalLast = instNetLast + instTv + instPhoneLast;
+
+                const constructionSupportDiscount = -1320;
+                const ouchiWari = optionsBreakdown.find(o => o.name === 'おうち割')?.price || 0;
+
+                // 1ヶ月目
+                headers.push('1ヶ月目');
+                rowsData['基本料金']['1ヶ月目'] = baseFee;
+                rowsData['オプション料金']['1ヶ月目'] = optionFee - ouchiWari;
+                rowsData['割引']['1ヶ月目'] = ouchiWari;
+                rowsData['キャンペーン割引']['1ヶ月目'] = campaignDiscount;
+                rowsData['事務手数料']['1ヶ月目'] = data.contract_fee;
+                rowsData['テレビ視聴サービス料']['1ヶ月目'] = inputs.tv ? data.tv_service_fee : 0;
+                rowsData['工事費(一括)']['1ヶ月目'] = oneTimePhoneCost;
+                rowsData['月々支払金額(合計)']['1ヶ月目'] = baseFee + optionFee + data.contract_fee + (inputs.tv ? data.tv_service_fee : 0) + oneTimePhoneCost + campaignDiscount;
+
+                // 2-3ヶ月目
+                headers.push('2～3ヶ月目');
+                rowsData['基本料金']['2～3ヶ月目'] = baseFee;
+                rowsData['オプション料金']['2～3ヶ月目'] = optionFee - ouchiWari;
+                rowsData['工事費(分割)']['2～3ヶ月目'] = instTotalRegular;
+                rowsData['割引']['2～3ヶ月目'] = ouchiWari;
+                rowsData['キャンペーン割引']['2～3ヶ月目'] = campaignDiscount;
+                rowsData['月々支払金額(合計)']['2～3ヶ月目'] = baseFee + optionFee + instTotalRegular + campaignDiscount;
+
+                // 4-6ヶ月目
+                headers.push('4～6ヶ月目');
+                rowsData['基本料金']['4～6ヶ月目'] = baseFee;
+                rowsData['オプション料金']['4～6ヶ月目'] = optionFee - ouchiWari;
+                rowsData['工事費(分割)']['4～6ヶ月目'] = instTotalRegular;
+                rowsData['割引']['4～6ヶ月目'] = ouchiWari;
+                rowsData['月々支払金額(合計)']['4～6ヶ月目'] = baseFee + optionFee + instTotalRegular;
+
+                // 7ヶ月目以降
+                if (instCount === 24) { // No TV option
+                    headers.push('7～23ヶ月目', '24ヶ月目', '25～31ヶ月目', '32ヶ月目～');
+                    // 7-23
+                    rowsData['基本料金']['7～23ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['7～23ヶ月目'] = optionFee - ouchiWari;
+                    rowsData['工事費(分割)']['7～23ヶ月目'] = instTotalRegular;
+                    rowsData['工事費割引']['7～23ヶ月目'] = constructionSupportDiscount;
+                    rowsData['割引']['7～23ヶ月目'] = ouchiWari;
+                    rowsData['月々支払金額(合計)']['7～23ヶ月目'] = baseFee + optionFee + instTotalRegular + constructionSupportDiscount;
+                    // 24
+                    rowsData['基本料金']['24ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['24ヶ月目'] = optionFee - ouchiWari;
+                    rowsData['工事費(分割)']['24ヶ月目'] = instTotalLast;
+                    rowsData['工事費割引']['24ヶ月目'] = constructionSupportDiscount;
+                    rowsData['割引']['24ヶ月目'] = ouchiWari;
+                    rowsData['月々支払金額(合計)']['24ヶ月目'] = baseFee + optionFee + instTotalLast + constructionSupportDiscount;
+                    // 25-31
+                    rowsData['基本料金']['25～31ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['25～31ヶ月目'] = optionFee - ouchiWari;
+                    rowsData['工事費割引']['25～31ヶ月目'] = constructionSupportDiscount;
+                    rowsData['割引']['25～31ヶ月目'] = ouchiWari;
+                    rowsData['月々支払金額(合計)']['25～31ヶ月目'] = baseFee + optionFee + constructionSupportDiscount;
+                    // 32-
+                    rowsData['基本料金']['32ヶ月目～'] = baseFee;
+                    rowsData['オプション料金']['32ヶ月目～'] = optionFee - ouchiWari;
+                    rowsData['割引']['32ヶ月目～'] = ouchiWari;
+                    rowsData['月々支払金額(合計)']['32ヶ月目～'] = baseFee + optionFee;
+                } else { // instCount === 60, TV option is on
+                    headers.push('7～31ヶ月目', '32～61ヶ月目', '62ヶ月目～');
+                    // 7-31
+                    rowsData['基本料金']['7～31ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['7～31ヶ月目'] = optionFee - ouchiWari;
+                    rowsData['工事費(分割)']['7～31ヶ月目'] = instTotalRegular; 
+                    rowsData['工事費割引']['7～31ヶ月目'] = constructionSupportDiscount;
+                    rowsData['割引']['7～31ヶ月目'] = ouchiWari;
+                    rowsData['月々支払金額(合計)']['7～31ヶ月目'] = baseFee + optionFee + instTotalRegular + constructionSupportDiscount;
+                    // 32-61
+                    rowsData['基本料金']['32～61ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['32～61ヶ月目'] = optionFee - ouchiWari;
+                    rowsData['工事費(分割)']['32～61ヶ月目'] = instTotalRegular;
+                    rowsData['割引']['32～61ヶ月目'] = ouchiWari;
+                    rowsData['月々支払金額(合計)']['32～61ヶ月目'] = baseFee + optionFee + instTotalRegular;
+                    // 62-
+                    rowsData['基本料金']['62ヶ月目～'] = baseFee;
+                    rowsData['オプション料金']['62ヶ月目～'] = optionFee - ouchiWari;
+                    rowsData['割引']['62ヶ月目～'] = ouchiWari;
+                    rowsData['月々支払金額(合計)']['62ヶ月目～'] = baseFee + optionFee;
+                }
+
+                const finalRows = Object.keys(rowsData).map(key => ({
+                    isTotal: key.includes('合計'),
+                    values: { '項目': key, ...rowsData[key] }
+                }));
+                timeline = { headers, rows: finalRows };
+            }
+
+            const tvServiceFee = inputs.tv ? data.tv_service_fee : 0;
+            const oneTimeCosts = { contractFee: data.contract_fee, phone: oneTimePhoneCost };
+            const oneTimeCostsTotal = oneTimeCosts.contractFee + oneTimeCosts.phone + tvServiceFee;
+            
+            const installments = inputs.tv ? data.installments.tv : data.installments.default;
+            const detail = inputs.tv ? data.installments_detail.with_tv : data.installments_detail.no_tv;
+            
+            let first = 0, regular = 0, last = 0;
+            if (!campaignApplied) {
+                regular += detail.net.regular;
+                last += detail.net.last || 0;
+            }
+            if(inputs.tv) regular += detail.tv.regular;
+            if(installmentPhoneCost > 0) {
+                regular += detail.phone_port.regular;
+                last += detail.phone_port.last || 0;
+            }
+            
+            if(!campaignApplied) {
+                installmentText = formatInstallmentText({regular, last, count: installments});
+            } else {
+                let textParts = ["(ネット工事費 実質0円)"];
+                let campaignRegular = 0, campaignLast = 0;
+                 if (constructionFeeTv > 0) campaignRegular += detail.tv.regular;
+                 if (installmentPhoneCost > 0) {
+                    campaignRegular += detail.phone_port.regular;
+                    campaignLast += detail.phone_port.last || 0;
+                 }
+                 if(campaignRegular > 0) {
+                     textParts.push(`別途 ${formatInstallmentText({regular: campaignRegular, last: campaignLast, count: installments})}`);
+                 }
+                 installmentText = textParts.join(' ');
+            }
+            
+            const netHTML = campaignApplied ? `<del>${constructionFeeNet.toLocaleString()}円</del> → 実質0円` : `${constructionFeeNet.toLocaleString()}円`;
+            const tvHTML = `${constructionFeeTv.toLocaleString()}円`;
+            const phoneHTML = `${installmentPhoneCost.toLocaleString()}円`;
+
+            return { id: 'softbank', name: data.name, baseFee, totalMonthly, regularMonthly, optionsBreakdown, oneTimePhoneCost, installmentPhoneCost, constructionFeeNet, constructionFeeTv, tvServiceFee, oneTimeCostsTotal, installmentCostsTotal, campaignApplied, oneTimeCosts: { ...oneTimeCosts, contractFeeHTML: `${oneTimeCosts.contractFee.toLocaleString()}円`, phoneHTML: `${oneTimeCosts.phone.toLocaleString()}円` }, installmentCosts: { netHTML, tvHTML, phoneHTML }, installmentText, campaignTitle, campaignContent, campaignDuration, timeline, speed: inputs.speed };
+        }
+
+        function calculateBiglobe(inputs, campaignApplied) {
+            const data = serviceData.biglobe;
+            const baseFee = data.prices[inputs.housing][inputs.speed];
+            let optionsBreakdown = [];
+            if (inputs.phone) optionsBreakdown.push({ name: '光電話', price: data.options.phone });
+            if (inputs.tv) optionsBreakdown.push({ name: 'テレビオプション', price: data.options.tv });
+            if (inputs.router) {
+                const routerPrice = (inputs.speed === '10G' && inputs.phone) ? data.options.router_10g_bundle : data.options.router;
+                optionsBreakdown.push({ name: 'ルーターレンタル', price: routerPrice });
+            }
+            if (inputs.speed === '10G') optionsBreakdown.push({ name: 'スタート割/継続利用特典', price: data.options.discount });
+            
+            const oneTimePhoneCost = inputs.phone ? data.phone_construction[inputs.phoneType] : 0;
+
+            let campaignTitle = "ビッグローブ光 適用キャンペーン", campaignContent = "", installmentText = "", campaignDuration = 0, regularMonthly = 0, totalMonthly = 0;
+            const optionFee = optionsBreakdown.filter(opt => typeof opt.price === 'number').reduce((sum, opt) => sum + opt.price, 0);
+            regularMonthly = baseFee + optionFee;
+            totalMonthly = regularMonthly;
+
+            const constructionFeeNet = data.construction[inputs.housing];
+            const constructionFeeTv = inputs.tv ? data.construction_tv : 0;
+            let installmentCostsTotal = constructionFeeNet;
+            let timeline = null;
+
+            if(campaignApplied) {
+                let discount = 0;
+                if(inputs.speed === '1G') {
+                    discount = -(baseFee - 500);
+                    campaignDuration = 3;
+                    campaignContent = `<b>3ヶ月間500円キャンペーン</b> (総額${Math.abs(discount * 3).toLocaleString()}円割引)\n内容: 2-4ヶ月間基本料金500円`;
+                } else { // 10G
+                    discount = -5660;
+                    campaignDuration = 6;
+                    campaignContent = `<b>6ヶ月間500円キャンペーン</b> (総額${Math.abs(discount * 6).toLocaleString()}円割引)\n内容: 2-7ヶ月間基本料金500円(スタート割含め)`;
+                }
+                optionsBreakdown.push({ name: `キャンペーン割引`, price: discount });
+                totalMonthly += discount;
+                
+                installmentCostsTotal = 0; // ネット工事費は実質無料
+                if (campaignContent) campaignContent += "\n\n";
+                campaignContent += "<b>新規工事費実質無料特典</b>\n内容: 工事費分割金額相当分を月額費用から割引";
+
+                 // Timeline
+                const headers = ['項目'];
+                const rowsData = getTimelineRowTemplate();
+
+                const instDetail = data.installments_detail.net;
+                const instFirst = instDetail.first;
+                const instRegular = instDetail.regular;
+                const startDiscount = inputs.speed === '10G' ? data.options.discount : 0;
+                
+                const routerOpt = optionsBreakdown.find(o => o.name.includes('ルーター'));
+                const optionFeeFirstMonth = routerOpt && typeof routerOpt.price === 'number' ? routerOpt.price : 0;
+
+                // 1ヶ月目
+                headers.push('1ヶ月目');
+                rowsData['基本料金']['1ヶ月目'] = baseFee;
+                rowsData['オプション料金']['1ヶ月目'] = optionFeeFirstMonth;
+                rowsData['割引']['1ヶ月目'] = startDiscount;
+                rowsData['事務手数料']['1ヶ月目'] = data.contract_fee;
+                rowsData['テレビ視聴サービス料']['1ヶ月目'] = inputs.tv ? data.tv_service_fee : 0;
+                rowsData['工事費(一括)']['1ヶ月目'] = constructionFeeTv + oneTimePhoneCost;
+                rowsData['月々支払金額(合計)']['1ヶ月目'] = baseFee + optionFeeFirstMonth + startDiscount + data.contract_fee + (inputs.tv ? data.tv_service_fee : 0) + constructionFeeTv + oneTimePhoneCost;
+
+                // 2ヶ月目
+                headers.push('2ヶ月目');
+                rowsData['基本料金']['2ヶ月目'] = baseFee;
+                rowsData['オプション料金']['2ヶ月目'] = optionFee - startDiscount;
+                rowsData['工事費(分割)']['2ヶ月目'] = instFirst;
+                rowsData['工事費割引']['2ヶ月目'] = -instFirst;
+                rowsData['割引']['2ヶ月目'] = startDiscount;
+                rowsData['キャンペーン割引']['2ヶ月目'] = discount;
+                rowsData['月々支払金額(合計)']['2ヶ月目'] = baseFee + optionFee + discount;
+
+                // 3ヶ月目以降
+                if (inputs.speed === '1G') {
+                    headers.push('3～4ヶ月目', '5～37ヶ月目', '38ヶ月目～');
+                    rowsData['基本料金']['3～4ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['3～4ヶ月目'] = optionFee;
+                    rowsData['工事費(分割)']['3～4ヶ月目'] = instRegular;
+                    rowsData['工事費割引']['3～4ヶ月目'] = -instRegular;
+                    rowsData['キャンペーン割引']['3～4ヶ月目'] = discount;
+                    rowsData['月々支払金額(合計)']['3～4ヶ月目'] = baseFee + optionFee + discount;
+                    
+                    rowsData['基本料金']['5～37ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['5～37ヶ月目'] = optionFee;
+                    rowsData['工事費(分割)']['5～37ヶ月目'] = instRegular;
+                    rowsData['工事費割引']['5～37ヶ月目'] = -instRegular;
+                    rowsData['月々支払金額(合計)']['5～37ヶ月目'] = baseFee + optionFee;
+                    
+                    rowsData['基本料金']['38ヶ月目～'] = baseFee;
+                    rowsData['オプション料金']['38ヶ月目～'] = optionFee;
+                    rowsData['月々支払金額(合計)']['38ヶ月目～'] = baseFee + optionFee;
+                } else { // 10G
+                    headers.push('3～7ヶ月目', '8～37ヶ月目', '38ヶ月目～');
+                    rowsData['基本料金']['3～7ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['3～7ヶ月目'] = optionFee - startDiscount;
+                    rowsData['工事費(分割)']['3～7ヶ月目'] = instRegular;
+                    rowsData['工事費割引']['3～7ヶ月目'] = -instRegular;
+                    rowsData['割引']['3～7ヶ月目'] = startDiscount;
+                    rowsData['キャンペーン割引']['3～7ヶ月目'] = discount;
+                    rowsData['月々支払金額(合計)']['3～7ヶ月目'] = baseFee + optionFee + discount;
+                    
+                    rowsData['基本料金']['8～37ヶ月目'] = baseFee;
+                    rowsData['オプション料金']['8～37ヶ月目'] = optionFee - startDiscount;
+                    rowsData['工事費(分割)']['8～37ヶ月目'] = instRegular;
+                    rowsData['工事費割引']['8～37ヶ月目'] = -instRegular;
+                    rowsData['割引']['8～37ヶ月目'] = startDiscount;
+                    rowsData['月々支払金額(合計)']['8～37ヶ月目'] = regularMonthly;
+                    
+                    rowsData['基本料金']['38ヶ月目～'] = baseFee;
+                    rowsData['オプション料金']['38ヶ月目～'] = optionFee - startDiscount;
+                    rowsData['割引']['38ヶ月目～'] = startDiscount;
+                    rowsData['月々支払金額(合計)']['38ヶ月目～'] = regularMonthly;
+                }
+
+                const finalRows = Object.keys(rowsData).map(key => ({
+                    isTotal: key.includes('合計'),
+                    values: { '項目': key, ...rowsData[key] }
+                }));
+                timeline = { headers, rows: finalRows };
+            }
+            
+            const tvServiceFee = inputs.tv ? data.tv_service_fee : 0;
+            const oneTimeCosts = { contractFee: data.contract_fee, phone: oneTimePhoneCost };
+            const oneTimeCostsTotal = oneTimeCosts.contractFee + oneTimeCosts.phone + tvServiceFee + constructionFeeTv;
+            
+            if(!campaignApplied) {
+                installmentText = formatInstallmentText(data.installments_detail.net);
+            } else {
+                installmentText = `(ネット工事費 実質0円)`;
+            }
+            
+            const netHTML = campaignApplied ? `<del>${constructionFeeNet.toLocaleString()}円</del> → 実質0円` : `${constructionFeeNet.toLocaleString()}円`;
+
+            return { id: 'biglobe', name: data.name, baseFee, totalMonthly, regularMonthly, optionsBreakdown, oneTimePhoneCost, installmentPhoneCost: 0, constructionFeeNet, constructionFeeTv, tvServiceFee, oneTimeCostsTotal, installmentCostsTotal, campaignApplied, oneTimeCosts: { ...oneTimeCosts, contractFeeHTML: `${oneTimeCosts.contractFee.toLocaleString()}円`, phoneHTML: `${oneTimeCosts.phone.toLocaleString()}円` }, installmentCosts: { netHTML }, installmentText, campaignTitle, campaignContent, campaignDuration, timeline, speed: inputs.speed };
+        }
+
+        // 初期化処理
+        document.addEventListener('DOMContentLoaded', () => {
+            tvOptionWrapperEl.style.display = 'flex';
+        });
+    </script>
+</body>
+</html>
